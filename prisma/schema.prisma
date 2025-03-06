@@ -1,0 +1,172 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profiles
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  password       String
+  name           String
+  role           Role            @default(STUDENT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  profile        Profile?
+  enrollments    Enrollment[]
+  assignments    Assignment[]    @relation("AssignmentSubmissions")
+  attendances    Attendance[]
+  payments       Payment[]
+  notes          Note[]
+  resources      Resource[]      @relation("ResourceCreator")
+  textbooks      Textbook[]
+}
+
+// User profile with additional information
+model Profile {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatar      String?
+  bio         String?   @db.Text
+  phoneNumber String?
+  address     String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Course model for educational content
+model Course {
+  id          String        @id @default(uuid())
+  title       String
+  description String?       @db.Text
+  code        String        @unique
+  credits     Int
+  isActive    Boolean       @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  enrollments Enrollment[]
+  schedule    Schedule[]
+  assignments Assignment[]
+  resources   Resource[]    @relation("CourseResources")
+}
+
+// Enrollment connects users to courses
+model Enrollment {
+  id        String    @id @default(uuid())
+  userId    String
+  courseId  String
+  status    String    @default("active") // active, completed, dropped
+  grade     Float?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+// Schedule for course timetable
+model Schedule {
+  id        String    @id @default(uuid())
+  courseId  String
+  dayOfWeek Int       // 0-6 for Sunday-Saturday
+  startTime DateTime
+  endTime   DateTime
+  room      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+// Assignment model for course work
+model Assignment {
+  id          String    @id @default(uuid())
+  title       String
+  description String?   @db.Text
+  courseId    String
+  dueDate     DateTime
+  maxScore    Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions User[]    @relation("AssignmentSubmissions")
+}
+
+// Attendance tracking
+model Attendance {
+  id        String    @id @default(uuid())
+  userId    String
+  date      DateTime
+  status    String    // present, absent, late
+  notes     String?   @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Payment model for fees
+model Payment {
+  id          String    @id @default(uuid())
+  userId      String
+  amount      Float
+  description String
+  status      String    // paid, pending, overdue
+  dueDate     DateTime
+  paidDate    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Notes/Evaluations
+model Note {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Educational resources
+model Resource {
+  id          String    @id @default(uuid())
+  title       String
+  description String?   @db.Text
+  fileUrl     String
+  fileType    String
+  creatorId   String
+  courseId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  creator     User      @relation("ResourceCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  course      Course    @relation("CourseResources", fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+// Textbook/notebook
+model Textbook {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
